@@ -9,20 +9,24 @@ It's a single C# file built with the compiler that ships with Windows, so there'
 
 1. Clone or download this repo.
 2. Double-click **`build.cmd`**. It produces `DualClock.exe` next to it.
-3. Run `DualClock.exe`. Right-click it and tick **Start with Windows** if you want it at logon.
+3. Run `DualClock.exe`. A ClockCraft icon appears in the system tray.
+4. Optional: tray icon → **Start at login**, and tray icon → **Create desktop shortcut**. To pin it to the taskbar, right-click that shortcut → Show more options → **Pin to taskbar**.
 
 SmartScreen may warn the first time because the exe isn't code-signed. Click **More info → Run anyway**.
 
 ## Use
 
 - **Moving:** drag it anywhere, on any monitor. It remembers its position, and if that monitor is gone it comes back on screen. Double-click to snap it to the top-center of the monitor it's on.
-- **Closing:** hover to show a small ✕ in the top-right corner, then click it.
+- **Hiding:** hover to show a small ✕ in the top-right corner. Clicking it hides the island to the tray, and it keeps running.
+- **Tray icon:** left-click to show or hide the island. Right-click for snap, start at login, desktop shortcut and exit.
+- **Taskbar pin or shortcut:** launching it again brings the running copy back instead of opening a second one.
 - **Right-click menu:**
   - add or remove time zones
   - 24-hour time
   - seconds
   - always on top
-  - start with Windows
+  - start at login
+  - hide to tray
   - snap to top center
   - exit
 - **Each city shows:**

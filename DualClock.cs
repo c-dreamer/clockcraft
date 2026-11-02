@@ -2,8 +2,9 @@
 // Single file, C# 5 / .NET Framework 4.x so it builds with the csc.exe that ships in Windows (see build.cmd).
 //
 // Drag to move (any monitor). Double-click to snap to the top-center of the current monitor.
-// Hover for a close (x) button. Right-click: add/remove time zones, 12/24h, seconds,
-// always on top, start with Windows, snap, exit.
+// Hover for a close (x) button, which hides it to the system tray. Tray icon: click to show/hide,
+// right-click for snap, start at login, desktop shortcut, exit.
+// Right-click the island: add/remove time zones, 12/24h, seconds, always on top, start at login, snap, exit.
 // Settings: %APPDATA%\DualClock\settings.json (same file the PowerShell version used).
 
 using System;
@@ -133,6 +134,8 @@ namespace ClockCraft
         readonly Border closeBtn;
         readonly Brush closeIdle = Ui.Br("#FF3A3F4A");
         readonly Brush closeHot  = Ui.Br("#FFE5484D");
+        System.Windows.Forms.NotifyIcon tray;
+        bool quitting;
 
         public ClockWindow()
         {
@@ -180,7 +183,7 @@ namespace ClockCraft
             };
             closeBtn.MouseEnter += delegate { closeBtn.Background = closeHot; };
             closeBtn.MouseLeave += delegate { closeBtn.Background = closeIdle; };
-            closeBtn.MouseLeftButtonDown += (s, e) => { e.Handled = true; Close(); };
+            closeBtn.MouseLeftButtonDown += (s, e) => { e.Handled = true; HideToTray(); };
 
             var root = new Grid { Margin = new Thickness(16) };
             root.Children.Add(island);
@@ -194,9 +197,15 @@ namespace ClockCraft
             // Re-assert topmost when another window takes focus
             Deactivated += delegate { if (settings.Topmost) { Topmost = false; Topmost = true; } };
             Loaded += delegate { PlaceOnLoad(); };
-            Closing += delegate { settings.Save(); };
+            Closing += (s, e) =>
+            {
+                settings.Save();
+                if (!quitting) { e.Cancel = true; HideToTray(); return; }
+                if (tray != null) { tray.Visible = false; tray.Dispose(); }
+            };
 
             BuildMenu();
+            BuildTray();
             BuildRow();
             Tick();
 
@@ -366,7 +375,7 @@ namespace ClockCraft
             sec.Click += delegate { settings.Seconds = sec.IsChecked; Tick(); settings.Save(); };
             var top = new MenuItem { Header = "Always on top", IsCheckable = true, IsChecked = settings.Topmost };
             top.Click += delegate { settings.Topmost = top.IsChecked; Topmost = top.IsChecked; settings.Save(); };
-            var boot = new MenuItem { Header = "Start with Windows", IsCheckable = true };
+            var boot = new MenuItem { Header = "Start at login", IsCheckable = true };
             boot.Click += delegate
             {
                 try { SetStartWithWindows(boot.IsChecked); }
@@ -375,8 +384,10 @@ namespace ClockCraft
             };
             var snap = new MenuItem { Header = "Snap to top center" };
             snap.Click += delegate { SnapTopCenter(); settings.Save(); };
+            var hide = new MenuItem { Header = "Hide to tray" };
+            hide.Click += delegate { HideToTray(); };
             var exit = new MenuItem { Header = "Exit" };
-            exit.Click += delegate { Close(); };
+            exit.Click += delegate { Quit(); };
 
             menu.Items.Add(add);
             menu.Items.Add(rem);
@@ -387,6 +398,7 @@ namespace ClockCraft
             menu.Items.Add(boot);
             menu.Items.Add(snap);
             menu.Items.Add(new Separator());
+            menu.Items.Add(hide);
             menu.Items.Add(exit);
 
             menu.Opened += delegate
@@ -407,6 +419,76 @@ namespace ClockCraft
             };
 
             ContextMenu = menu;
+        }
+
+        // ---------------------------------------------------------------- tray
+        void BuildTray()
+        {
+            var icon = System.Drawing.Icon.ExtractAssociatedIcon(ExePath);
+            var m = new System.Windows.Forms.ContextMenuStrip();
+            var show  = new System.Windows.Forms.ToolStripMenuItem("Show / hide");
+            var snap  = new System.Windows.Forms.ToolStripMenuItem("Snap to top center");
+            var login = new System.Windows.Forms.ToolStripMenuItem("Start at login") { CheckOnClick = false };
+            var desk  = new System.Windows.Forms.ToolStripMenuItem("Create desktop shortcut");
+            var exit  = new System.Windows.Forms.ToolStripMenuItem("Exit");
+            show.Font = new System.Drawing.Font(show.Font, System.Drawing.FontStyle.Bold);
+            show.Click  += delegate { ToggleVisible(); };
+            snap.Click  += delegate { ShowFromTray(); SnapTopCenter(); settings.Save(); };
+            login.Click += delegate
+            {
+                try { SetStartWithWindows(!StartsWithWindows()); }
+                catch (Exception ex) { MessageBox.Show(ex.Message, "ClockCraft"); }
+            };
+            desk.Click  += delegate { CreateDesktopShortcut(); };
+            exit.Click  += delegate { Quit(); };
+            m.Opening += delegate { login.Checked = StartsWithWindows(); };
+            m.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { show, snap, new System.Windows.Forms.ToolStripSeparator(), login, desk, new System.Windows.Forms.ToolStripSeparator(), exit });
+
+            tray = new System.Windows.Forms.NotifyIcon { Icon = icon, Text = "ClockCraft", ContextMenuStrip = m, Visible = true };
+            tray.MouseClick += (s, e) => { if (e.Button == System.Windows.Forms.MouseButtons.Left) ToggleVisible(); };
+        }
+
+        void ToggleVisible() { if (IsVisible) HideToTray(); else ShowFromTray(); }
+
+        void HideToTray()
+        {
+            settings.Save();
+            Hide();
+        }
+
+        public void ShowFromTray()
+        {
+            Show();
+            Topmost = false; Topmost = settings.Topmost;
+            Activate();
+        }
+
+        // Called on Windows logoff/shutdown so the hide-to-tray cancel doesn't block it.
+        public void AllowExit() { quitting = true; }
+
+        void Quit()
+        {
+            quitting = true;
+            Close();
+        }
+
+        static void CreateDesktopShortcut()
+        {
+            try
+            {
+                string lnk = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "ClockCraft.lnk");
+                Type t = Type.GetTypeFromProgID("WScript.Shell");
+                object shell = Activator.CreateInstance(t);
+                object sc = t.InvokeMember("CreateShortcut", System.Reflection.BindingFlags.InvokeMethod, null, shell, new object[] { lnk });
+                Type st = sc.GetType();
+                st.InvokeMember("TargetPath", System.Reflection.BindingFlags.SetProperty, null, sc, new object[] { ExePath });
+                st.InvokeMember("WorkingDirectory", System.Reflection.BindingFlags.SetProperty, null, sc, new object[] { System.IO.Path.GetDirectoryName(ExePath) });
+                st.InvokeMember("IconLocation", System.Reflection.BindingFlags.SetProperty, null, sc, new object[] { ExePath + ",0" });
+                st.InvokeMember("Description", System.Reflection.BindingFlags.SetProperty, null, sc, new object[] { "ClockCraft time zone overlay" });
+                st.InvokeMember("Save", System.Reflection.BindingFlags.InvokeMethod, null, sc, null);
+                MessageBox.Show("Shortcut created on your desktop.\n\nTo pin to the taskbar: right-click it > Show more options > Pin to taskbar.", "ClockCraft");
+            }
+            catch (Exception ex) { MessageBox.Show("Couldn't create shortcut: " + ex.Message, "ClockCraft"); }
         }
 
         void AddZone()
@@ -497,8 +579,27 @@ namespace ClockCraft
             bool first;
             using (new Mutex(true, "ClockCraft.DualClock.SingleInstance", out first))
             {
-                if (!first) return; // already running
-                new Application().Run(new ClockWindow());
+                var showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, "ClockCraft.DualClock.Show");
+                if (!first)
+                {
+                    // Already running (e.g. launched again from the taskbar pin): bring that one up.
+                    showSignal.Set();
+                    return;
+                }
+
+                var app = new Application();
+                var win = new ClockWindow();
+                var listener = new Thread(() =>
+                {
+                    while (true)
+                    {
+                        showSignal.WaitOne();
+                        win.Dispatcher.BeginInvoke(new Action(win.ShowFromTray));
+                    }
+                }) { IsBackground = true };
+                listener.Start();
+                app.SessionEnding += delegate { win.AllowExit(); };
+                app.Run(win);
             }
         }
     }

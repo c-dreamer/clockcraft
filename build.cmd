@@ -9,7 +9,7 @@ if not exist "%FW%\csc.exe" (
 )
 
 "%FW%\csc.exe" /nologo /target:winexe /optimize+ ^
-  /out:"%~dp0DualClock.exe" /win32manifest:"%~dp0app.manifest" ^
+  /out:"%~dp0DualClock.exe" /win32manifest:"%~dp0app.manifest" /win32icon:"%~dp0clockcraft.ico" ^
   /lib:"%FW%" /lib:"%FW%\WPF" ^
   /r:PresentationFramework.dll /r:PresentationCore.dll /r:WindowsBase.dll /r:System.Xaml.dll ^
   /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Core.dll ^
