@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Floating "island" overlay showing Ballito (SAST), Boise (MST/MDT) and Manila (PHT) time.
+    Floating "island" overlay showing Ballito (SAST), Boise (MST/MDT) and Pampanga (PHT) time.
 .NOTES
     Stays on top of apps. Drag to move. Double-click to snap to top-center.
     Right-click: add/remove time zones, 12/24h, seconds, always-on-top, snap, exit.
@@ -12,12 +12,12 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 $ErrorActionPreference = 'Stop'
 
 # --- Default zones (first entry is the reference for offsets / Today-Tomorrow) ---
-# Windows TZ IDs: Mountain handles MST/MDT; Manila = 'Singapore Standard Time' (UTC+8, no DST).
+# Windows TZ IDs: Mountain handles MST/MDT; Pampanga = 'Singapore Standard Time' (UTC+8, no DST).
 # Abbr: "STD" or "STD/DST"; blank = show UTC offset. Add/remove at runtime via right-click.
 $defaultZones = @(
     [pscustomobject]@{ Label = 'BALLITO'; Id = 'South Africa Standard Time'; Abbr = 'SAST' }
     [pscustomobject]@{ Label = 'BOISE';   Id = 'Mountain Standard Time';     Abbr = 'MST/MDT' }
-    [pscustomobject]@{ Label = 'MANILA';  Id = 'Singapore Standard Time';    Abbr = 'PHT' }
+    [pscustomobject]@{ Label = 'PAMPANGA';Id = 'Singapore Standard Time';    Abbr = 'PHT' }
 )
 $accents = '#FFB547','#5AC8FA','#FF6B81','#A78BFA','#34D399','#F472B6','#60A5FA','#FBBF24'
 
