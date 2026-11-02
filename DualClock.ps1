@@ -165,7 +165,7 @@ function Update-Clock {
         $z.AmPm.Text = if ($settings.Use24h) { '' } else { $t.ToString('tt') }
         $a = if ($z.Tz.IsDaylightSavingTime($t)) { $z.Dst } else { $z.Std }
         if ([string]::IsNullOrWhiteSpace($a)) {
-            $o = $z.Tz.GetUtcOffset($utc); $a = 'UTC{0}{1}' -f $(if ($o -lt 0) { '-' } else { '+' }), $o.Duration().ToString('h\:mm').Replace(':00','')
+            $o = $z.Tz.GetUtcOffset($utc); $a = 'UTC{0}{1}' -f $(if ($o.Ticks -lt 0) { '-' } else { '+' }), $o.Duration().ToString('h\:mm').Replace(':00','')
         }
         $z.Abbr.Text = $a
         $z.Dot.Fill  = Get-StatusBrush $t
