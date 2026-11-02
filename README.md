@@ -5,7 +5,7 @@ Pure Windows PowerShell 5.1 + WPF. No third-party installs, no admin.
 
 - Rounded, translucent dark pill with drop shadow; snaps to top-center of the screen on first run.
 - Each city: status dot (green = weekday 08–17, amber = 07–22, grey = night), abbreviation, time, and day + offset relative to SAST.
-- Boise uses Windows `Mountain Standard Time`, so MST/MDT switches automatically. Pampanga uses `Singapore Standard Time` (UTC+8, the Windows zone for Pampanga).
+- Boise uses Windows `Mountain Standard Time`, so MST/MDT switches automatically. Pampanga uses `Singapore Standard Time` (UTC+8, the Windows zone used for the Philippines).
 - Drag to move, double-click to snap to top-center. Position is remembered in `%APPDATA%\DualClock\settings.json`.
 - Right-click: 24-hour time, seconds, always on top, snap, exit.
 
