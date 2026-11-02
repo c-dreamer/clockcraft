@@ -3,7 +3,7 @@
     Floating "island" overlay showing Ballito (SAST), Boise (MST/MDT) and Pampanga (PHT) time.
 .NOTES
     Stays on top of apps. Drag to move. Double-click to snap to top-center.
-    Right-click: add/remove time zones, 12/24h, seconds, always-on-top, snap, exit.
+    Hover for a close (x) button. Right-click: add/remove time zones, 12/24h, seconds, always-on-top, snap, exit.
     Settings persist to %APPDATA%\DualClock\settings.json.
     Windows PowerShell 5.1 + WPF only. No third-party dependencies.
 #>
@@ -80,11 +80,19 @@ function New-Text($size, $brush, $weight = 'Normal', $font = $fontText) {
       </Border.Effect>
       <StackPanel x:Name="Row" Orientation="Horizontal"/>
     </Border>
+    <Border x:Name="CloseBtn" Width="20" Height="20" CornerRadius="10" Cursor="Hand"
+            HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-7,-7,0"
+            Background="#FF3A3F4A" BorderBrush="#40FFFFFF" BorderThickness="1"
+            Visibility="Hidden" ToolTip="Close">
+      <TextBlock Text="&#x2715;" FontSize="10" Foreground="#DDE1E6"
+                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Border>
   </Grid>
 </Window>
 '@
 $window = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
 $island = $window.FindName('Island')
+$closeBtn = $window.FindName('CloseBtn')
 $row    = $window.FindName('Row')
 
 # --- Build one column per zone --------------------------------------------
@@ -203,8 +211,13 @@ $window.Add_MouseLeftButtonDown({
     $window.DragMove()
 })
 $window.Add_LocationChanged({ $settings.Left = $window.Left; $settings.Top = $window.Top })
-$window.Add_MouseEnter({ $island.Opacity = 1.0 })
-$window.Add_MouseLeave({ $island.Opacity = 0.94 })
+$window.Add_MouseEnter({ $island.Opacity = 1.0;  $closeBtn.Visibility = 'Visible' })
+$window.Add_MouseLeave({ $island.Opacity = 0.94; $closeBtn.Visibility = 'Hidden' })
+
+# Hover "x" to close (handled so it doesn't start a drag)
+$closeBtn.Add_MouseEnter({ $closeBtn.Background = Brush '#FFE5484D' })
+$closeBtn.Add_MouseLeave({ $closeBtn.Background = Brush '#FF3A3F4A' })
+$closeBtn.Add_MouseLeftButtonDown({ param($s, $e) $e.Handled = $true; $window.Close() })
 
 # Re-assert topmost when focus moves elsewhere (some fullscreen-ish apps steal it)
 $window.Add_Deactivated({ if ($settings.Topmost) { $window.Topmost = $false; $window.Topmost = $true } })

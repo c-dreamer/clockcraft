@@ -7,9 +7,10 @@ Pure Windows PowerShell 5.1 + WPF. No third-party installs, no admin.
 - Each city: status dot (green = weekday 08–17, amber = 07–22, grey = night), abbreviation, time, and day + offset relative to SAST.
 - Boise uses Windows `Mountain Standard Time`, so MST/MDT switches automatically. Pampanga uses `Singapore Standard Time` (UTC+8, the Windows zone used for the Philippines).
 - Drag to move, double-click to snap to top-center. Position is remembered in `%APPDATA%\DualClock\settings.json`.
-- Right-click: 24-hour time, seconds, always on top, snap, exit.
+- Hover to reveal a small close (x) button in the top-right corner.
+- Right-click: add/remove time zones, 24-hour time, seconds, always on top, snap, exit.
 
-Edit the `$zones` array at the top of `DualClock.ps1` to add, remove or reorder cities.
+Add or remove cities from the right-click menu; defaults are the `$defaultZones` list at the top of `DualClock.ps1`.
 
 ## Run / Install
 
