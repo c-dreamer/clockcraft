@@ -1,22 +1,35 @@
 <#
 .SYNOPSIS
-    Always-visible desktop widget showing South Africa (SAST) and Boise (MST/MDT) time.
+    Floating "island" overlay showing Ballito (SAST), Boise (MST/MDT) and Manila (PHT) time.
 .NOTES
-    Drag to move. Right-click for 12/24h, always-on-top, and exit.
+    Stays on top of apps. Drag to move. Double-click to snap to top-center.
+    Right-click: 12/24h, seconds, always-on-top, snap, exit.
     Settings persist to %APPDATA%\DualClock\settings.json.
+    Windows PowerShell 5.1 + WPF only. No third-party dependencies.
 #>
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 
 $ErrorActionPreference = 'Stop'
 
+# --- Zones (first entry is the reference for offsets / Today-Tomorrow) ----
+# Windows TZ IDs: Mountain handles MST/MDT; Manila = 'Singapore Standard Time' (UTC+8, no DST).
+$zones = @(
+    @{ Label = 'BALLITO'; Id = 'South Africa Standard Time'; Std = 'SAST'; Dst = 'SAST'; Accent = '#FFB547' }
+    @{ Label = 'BOISE';   Id = 'Mountain Standard Time';     Std = 'MST';  Dst = 'MDT';  Accent = '#5AC8FA' }
+    @{ Label = 'MANILA';  Id = 'Singapore Standard Time';    Std = 'PHT';  Dst = 'PHT';  Accent = '#FF6B81' }
+)
+foreach ($z in $zones) { $z.Tz = [TimeZoneInfo]::FindSystemTimeZoneById($z.Id) }
+
 # --- Settings -------------------------------------------------------------
 $settingsDir  = Join-Path $env:APPDATA 'DualClock'
 $settingsPath = Join-Path $settingsDir 'settings.json'
-$settings = [pscustomobject]@{ Left = 100; Top = 100; Use24h = $true; Topmost = $true }
+$settings = [pscustomobject]@{ Left = $null; Top = $null; Use24h = $true; Seconds = $false; Topmost = $true }
 if (Test-Path $settingsPath) {
     try {
         $saved = Get-Content $settingsPath -Raw | ConvertFrom-Json
-        foreach ($p in $saved.PSObject.Properties) { $settings.$($p.Name) = $p.Value }
+        foreach ($p in $saved.PSObject.Properties) {
+            if ($settings.PSObject.Properties.Name -contains $p.Name) { $settings.$($p.Name) = $p.Value }
+        }
     } catch { }
 }
 function Save-Settings {
@@ -24,83 +37,178 @@ function Save-Settings {
     $settings | ConvertTo-Json | Set-Content -Path $settingsPath -Encoding UTF8
 }
 
-# --- Time zones (Windows IDs; Mountain handles MST/MDT automatically) -----
-$tzSast = [TimeZoneInfo]::FindSystemTimeZoneById('South Africa Standard Time')
-$tzMtn  = [TimeZoneInfo]::FindSystemTimeZoneById('Mountain Standard Time')
+# --- Helpers --------------------------------------------------------------
+$bc = New-Object System.Windows.Media.BrushConverter
+function Brush([string]$hex) { $b = $bc.ConvertFromString($hex); $b.Freeze(); $b }
+$fontDisplay = New-Object System.Windows.Media.FontFamily 'Segoe UI Variable Display, Segoe UI'
+$fontText    = New-Object System.Windows.Media.FontFamily 'Segoe UI Variable Text, Segoe UI'
+$dim   = Brush '#8E96A3'
+$white = Brush '#F5F7FA'
 
-# --- UI -------------------------------------------------------------------
+function New-Text($size, $brush, $weight = 'Normal', $font = $fontText) {
+    $t = New-Object System.Windows.Controls.TextBlock
+    $t.FontSize = $size; $t.Foreground = $brush; $t.FontFamily = $font
+    $t.FontWeight = [System.Windows.FontWeights]::$weight
+    $t
+}
+
+# --- Window shell ---------------------------------------------------------
 [xml]$xaml = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        ShowInTaskbar="False" ResizeMode="NoResize" SizeToContent="WidthAndHeight">
-  <Border CornerRadius="10" Background="#E61E1E1E" Padding="14,10" BorderBrush="#33FFFFFF" BorderThickness="1">
-    <StackPanel Orientation="Horizontal">
-      <StackPanel Margin="0,0,18,0">
-        <TextBlock x:Name="LblA" Text="SAST" Foreground="#9AA0A6" FontSize="11" FontFamily="Segoe UI"/>
-        <TextBlock x:Name="TimeA" Foreground="White" FontSize="26" FontFamily="Segoe UI Semibold"/>
-        <TextBlock x:Name="DateA" Foreground="#9AA0A6" FontSize="11" FontFamily="Segoe UI"/>
-      </StackPanel>
-      <Rectangle Width="1" Fill="#33FFFFFF" Margin="0,2,18,2"/>
-      <StackPanel>
-        <TextBlock x:Name="LblB" Foreground="#9AA0A6" FontSize="11" FontFamily="Segoe UI"/>
-        <TextBlock x:Name="TimeB" Foreground="White" FontSize="26" FontFamily="Segoe UI Semibold"/>
-        <TextBlock x:Name="DateB" Foreground="#9AA0A6" FontSize="11" FontFamily="Segoe UI"/>
-      </StackPanel>
-    </StackPanel>
-  </Border>
+        ShowInTaskbar="False" ResizeMode="NoResize" SizeToContent="WidthAndHeight"
+        Topmost="True" Title="DualClock">
+  <Grid Margin="16">
+    <Border x:Name="Island" CornerRadius="26" Padding="22,12,22,12"
+            BorderThickness="1" Opacity="0.94">
+      <Border.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+          <GradientStop Color="#F2232832" Offset="0"/>
+          <GradientStop Color="#F2161A21" Offset="1"/>
+        </LinearGradientBrush>
+      </Border.Background>
+      <Border.BorderBrush>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+          <GradientStop Color="#40FFFFFF" Offset="0"/>
+          <GradientStop Color="#10FFFFFF" Offset="1"/>
+        </LinearGradientBrush>
+      </Border.BorderBrush>
+      <Border.Effect>
+        <DropShadowEffect BlurRadius="22" ShadowDepth="4" Direction="270" Opacity="0.45" Color="Black"/>
+      </Border.Effect>
+      <StackPanel x:Name="Row" Orientation="Horizontal"/>
+    </Border>
+  </Grid>
 </Window>
 '@
 $window = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
-$ui = @{}
-'LblA','TimeA','DateA','LblB','TimeB','DateB' | ForEach-Object { $ui[$_] = $window.FindName($_) }
+$island = $window.FindName('Island')
+$row    = $window.FindName('Row')
 
-$window.Left    = $settings.Left
-$window.Top     = $settings.Top
-$window.Topmost = [bool]$settings.Topmost
+# --- Build one column per zone --------------------------------------------
+for ($i = 0; $i -lt $zones.Count; $i++) {
+    $z = $zones[$i]
+    if ($i -gt 0) {
+        $sep = New-Object System.Windows.Shapes.Rectangle
+        $sep.Width = 1; $sep.Margin = '20,6,20,6'; $sep.Fill = Brush '#22FFFFFF'
+        [void]$row.Children.Add($sep)
+    }
+    $col = New-Object System.Windows.Controls.StackPanel
+    $col.MinWidth = 92
 
-# Keep the widget on-screen if a monitor was removed since last run
-$vs = [System.Windows.SystemParameters]
-if ($window.Left -lt $vs::VirtualScreenLeft -or $window.Left -gt ($vs::VirtualScreenLeft + $vs::VirtualScreenWidth - 50) -or
-    $window.Top  -lt $vs::VirtualScreenTop  -or $window.Top  -gt ($vs::VirtualScreenTop  + $vs::VirtualScreenHeight - 50)) {
-    $window.Left = 100; $window.Top = 100
+    # Header: status dot + city + abbreviation
+    $hdr = New-Object System.Windows.Controls.StackPanel
+    $hdr.Orientation = 'Horizontal'
+    $dot = New-Object System.Windows.Shapes.Ellipse
+    $dot.Width = 7; $dot.Height = 7; $dot.Margin = '0,0,6,0'; $dot.VerticalAlignment = 'Center'
+    $city = New-Text 10.5 (Brush $z.Accent) 'SemiBold'
+    $city.Text = $z.Label
+    $abbr = New-Text 10.5 $dim
+    $abbr.Margin = '6,0,0,0'
+    [void]$hdr.Children.Add($dot); [void]$hdr.Children.Add($city); [void]$hdr.Children.Add($abbr)
+
+    # Time
+    $timeRow = New-Object System.Windows.Controls.StackPanel
+    $timeRow.Orientation = 'Horizontal'
+    $time = New-Text 28 $white 'SemiBold' $fontDisplay
+    $time.Margin = '0,-2,0,-3'
+    $ampm = New-Text 12 $dim 'SemiBold'
+    $ampm.Margin = '4,0,0,5'; $ampm.VerticalAlignment = 'Bottom'
+    [void]$timeRow.Children.Add($time); [void]$timeRow.Children.Add($ampm)
+
+    # Footer: day + offset
+    $foot = New-Text 10.5 $dim
+
+    [void]$col.Children.Add($hdr); [void]$col.Children.Add($timeRow); [void]$col.Children.Add($foot)
+    [void]$row.Children.Add($col)
+
+    $z.Dot = $dot; $z.Abbr = $abbr; $z.Time = $time; $z.AmPm = $ampm; $z.Foot = $foot
+}
+
+# --- Status colours: working hours / shoulder / night ---------------------
+$cWork  = Brush '#34C759'
+$cShoul = Brush '#FFCC00'
+$cNight = Brush '#5E6673'
+function Get-StatusBrush([DateTime]$t) {
+    $wkday = $t.DayOfWeek -ne 'Saturday' -and $t.DayOfWeek -ne 'Sunday'
+    if ($wkday -and $t.Hour -ge 8 -and $t.Hour -lt 17) { return $cWork }
+    if ($t.Hour -ge 7 -and $t.Hour -lt 22) { return $cShoul }
+    return $cNight
 }
 
 # --- Render ---------------------------------------------------------------
 function Update-Clock {
-    $utc  = [DateTime]::UtcNow
-    $a    = [TimeZoneInfo]::ConvertTimeFromUtc($utc, $tzSast)
-    $b    = [TimeZoneInfo]::ConvertTimeFromUtc($utc, $tzMtn)
-    $fmt  = if ($settings.Use24h) { 'HH:mm' } else { 'h:mm tt' }
-    $abbr = if ($tzMtn.IsDaylightSavingTime($b)) { 'MDT' } else { 'MST' }
-    $diff = ($a - $b).TotalHours
+    $utc = [DateTime]::UtcNow
+    $ref = [TimeZoneInfo]::ConvertTimeFromUtc($utc, $zones[0].Tz)
+    $fmt = if ($settings.Use24h) { 'HH:mm' } else { 'h:mm' }
+    if ($settings.Seconds) { $fmt += ':ss' }
 
-    $ui.TimeA.Text = $a.ToString($fmt)
-    $ui.DateA.Text = $a.ToString('ddd d MMM')
-    $ui.LblB.Text  = "BOISE $abbr  (-$diff h)"
-    $ui.TimeB.Text = $b.ToString($fmt)
-    $ui.DateB.Text = $b.ToString('ddd d MMM')
+    foreach ($z in $zones) {
+        $t = [TimeZoneInfo]::ConvertTimeFromUtc($utc, $z.Tz)
+        $z.Time.Text = $t.ToString($fmt)
+        $z.AmPm.Text = if ($settings.Use24h) { '' } else { $t.ToString('tt') }
+        $z.Abbr.Text = if ($z.Tz.IsDaylightSavingTime($t)) { $z.Dst } else { $z.Std }
+        $z.Dot.Fill  = Get-StatusBrush $t
+
+        $dayDiff = ($t.Date - $ref.Date).Days
+        $day = switch ($dayDiff) { 0 { 'Today' } 1 { 'Tomorrow' } -1 { 'Yesterday' } default { $t.ToString('ddd') } }
+        $hrs = ($t - $ref).TotalHours
+        if ($z -eq $zones[0]) { $z.Foot.Text = $t.ToString('ddd d MMM') }
+        else {
+            $sign = if ($hrs -ge 0) { '+' } else { '' }
+            $z.Foot.Text = '{0}  {1}{2}h' -f $day, $sign, $hrs
+        }
+    }
 }
 
-$timer = New-Object System.Windows.Threading.DispatcherTimer
-$timer.Interval = [TimeSpan]::FromSeconds(1)
-$timer.Add_Tick({ Update-Clock })
+# --- Positioning ----------------------------------------------------------
+function Set-TopCenter {
+    $wa = [System.Windows.SystemParameters]::WorkArea
+    $window.Left = $wa.Left + ($wa.Width - $window.ActualWidth) / 2
+    $window.Top  = $wa.Top + 2
+}
+$window.Add_Loaded({
+    $vs = [System.Windows.SystemParameters]
+    $ok = $null -ne $settings.Left -and $null -ne $settings.Top -and
+          $settings.Left -ge $vs::VirtualScreenLeft -and $settings.Left -le ($vs::VirtualScreenLeft + $vs::VirtualScreenWidth - 80) -and
+          $settings.Top  -ge $vs::VirtualScreenTop  -and $settings.Top  -le ($vs::VirtualScreenTop  + $vs::VirtualScreenHeight - 40)
+    if ($ok) { $window.Left = $settings.Left; $window.Top = $settings.Top } else { Set-TopCenter }
+})
+$window.Topmost = [bool]$settings.Topmost
 
 # --- Interaction ----------------------------------------------------------
-$window.Add_MouseLeftButtonDown({ $window.DragMove() })
+$window.Add_MouseLeftButtonDown({
+    param($s, $e)
+    if ($e.ClickCount -eq 2) { Set-TopCenter; return }
+    $window.DragMove()
+})
 $window.Add_LocationChanged({ $settings.Left = $window.Left; $settings.Top = $window.Top })
+$window.Add_MouseEnter({ $island.Opacity = 1.0 })
+$window.Add_MouseLeave({ $island.Opacity = 0.94 })
 
-$menu = New-Object System.Windows.Controls.ContextMenu
-$mi24 = New-Object System.Windows.Controls.MenuItem -Property @{ Header = '24-hour time'; IsCheckable = $true; IsChecked = [bool]$settings.Use24h }
-$miTop = New-Object System.Windows.Controls.MenuItem -Property @{ Header = 'Always on top'; IsCheckable = $true; IsChecked = [bool]$settings.Topmost }
+# Re-assert topmost when focus moves elsewhere (some fullscreen-ish apps steal it)
+$window.Add_Deactivated({ if ($settings.Topmost) { $window.Topmost = $false; $window.Topmost = $true } })
+
+$menu   = New-Object System.Windows.Controls.ContextMenu
+$mi24   = New-Object System.Windows.Controls.MenuItem -Property @{ Header = '24-hour time';  IsCheckable = $true; IsChecked = [bool]$settings.Use24h }
+$miSec  = New-Object System.Windows.Controls.MenuItem -Property @{ Header = 'Show seconds';  IsCheckable = $true; IsChecked = [bool]$settings.Seconds }
+$miTop  = New-Object System.Windows.Controls.MenuItem -Property @{ Header = 'Always on top'; IsCheckable = $true; IsChecked = [bool]$settings.Topmost }
+$miSnap = New-Object System.Windows.Controls.MenuItem -Property @{ Header = 'Snap to top center' }
 $miExit = New-Object System.Windows.Controls.MenuItem -Property @{ Header = 'Exit' }
-$mi24.Add_Click({ $settings.Use24h = $mi24.IsChecked; Update-Clock; Save-Settings })
+$mi24.Add_Click({  $settings.Use24h  = $mi24.IsChecked;  Update-Clock; Save-Settings })
+$miSec.Add_Click({ $settings.Seconds = $miSec.IsChecked; Update-Clock; Save-Settings })
 $miTop.Add_Click({ $settings.Topmost = $miTop.IsChecked; $window.Topmost = $miTop.IsChecked; Save-Settings })
+$miSnap.Add_Click({ Set-TopCenter; Save-Settings })
 $miExit.Add_Click({ $window.Close() })
-[void]$menu.Items.Add($mi24); [void]$menu.Items.Add($miTop)
-[void]$menu.Items.Add((New-Object System.Windows.Controls.Separator)); [void]$menu.Items.Add($miExit)
+foreach ($m in $mi24, $miSec, $miTop, $miSnap) { [void]$menu.Items.Add($m) }
+[void]$menu.Items.Add((New-Object System.Windows.Controls.Separator))
+[void]$menu.Items.Add($miExit)
 $window.ContextMenu = $menu
 
+$timer = New-Object System.Windows.Threading.DispatcherTimer
+$timer.Interval = [TimeSpan]::FromMilliseconds(500)
+$timer.Add_Tick({ Update-Clock })
 $window.Add_Closing({ $timer.Stop(); Save-Settings })
 
 Update-Clock

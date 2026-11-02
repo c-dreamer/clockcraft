@@ -18,7 +18,7 @@ $sc.TargetPath       = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershe
 $sc.Arguments        = $args_
 $sc.WorkingDirectory = $dest
 $sc.WindowStyle      = 7   # minimized
-$sc.Description      = 'SAST / Boise dual clock'
+$sc.Description      = 'SAST / Boise / Manila clock'
 $sc.Save()
 
 Start-Process -FilePath $sc.TargetPath -ArgumentList $args_ -WindowStyle Hidden
