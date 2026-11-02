@@ -5,7 +5,17 @@ The defaults are **Ballito (SAST)**, **Boise (MST/MDT)** and **Pampanga (PHT)**.
 
 It's a single C# file built with the compiler that ships with Windows, so there's no SDK, no installer and nothing third-party.
 
-## Build
+## One-line install
+
+```powershell
+irm https://raw.githubusercontent.com/c-dreamer/clockcraft/main/install.ps1 | iex
+```
+
+This downloads the source, builds it locally, installs to `%LOCALAPPDATA%\ClockCraft`, turns on start at login, adds a desktop shortcut and launches it. It needs no admin rights.
+
+To uninstall: `irm https://raw.githubusercontent.com/c-dreamer/clockcraft/main/uninstall.ps1 | iex`
+
+## Build manually
 
 1. Clone or download this repo.
 2. Double-click **`build.cmd`**. It produces `DualClock.exe` next to it.
