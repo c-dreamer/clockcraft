@@ -159,7 +159,10 @@ namespace ClockCraft
                 BorderThickness = new Thickness(1),
                 Opacity = 0.94,
                 Effect = new DropShadowEffect { BlurRadius = 22, ShadowDepth = 4, Direction = 270, Opacity = 0.45, Color = Colors.Black },
-                Child = new StackPanel { Children = { row, BuildPhoneBar() } }
+                Child = new StackPanel { Children = {
+                    row,
+                    BuildCopyBar("MTS", MtsNumber, "Copy Microtech number", true),
+                    BuildCopyBar("EMAIL", MyEmail, "Copy my email", false) } }
             };
 
             var x = Ui.T(10, Ui.Br("#DDE1E6"), FontWeights.Normal, Ui.Text);
@@ -214,16 +217,17 @@ namespace ClockCraft
             timer.Start();
         }
 
-        // ---------------------------------------------------------------- phone bar
+        // ---------------------------------------------------------------- copy bars
         const string MtsNumber = "208-345-0054";
+        const string MyEmail = "caleb@microtechboise.com";
 
-        // Strip under the clocks with the Microtech main number; click copies it.
-        Border BuildPhoneBar()
+        // Strip under the clocks showing a value; click copies it. Only the first strip draws the divider.
+        Border BuildCopyBar(string tag, string value, string tip, bool first)
         {
             var label = Ui.T(10.5, Ui.Dim, FontWeights.SemiBold, Ui.Text);
-            label.Text = "MTS";
+            label.Text = tag;
             var num = Ui.T(13, Ui.White, FontWeights.SemiBold, Ui.Text);
-            num.Text = MtsNumber;
+            num.Text = value;
             num.Margin = new Thickness(8, 0, 8, 0);
             var hint = Ui.T(10, Ui.Dim, FontWeights.Normal, Ui.Text);
             hint.Text = "click to copy";
@@ -231,19 +235,19 @@ namespace ClockCraft
 
             var bar = new Border
             {
-                Margin = new Thickness(0, 10, 0, 0),
-                Padding = new Thickness(0, 8, 0, 0),
+                Margin = new Thickness(0, first ? 10 : 4, 0, 0),
+                Padding = new Thickness(0, first ? 8 : 0, 0, 0),
                 BorderBrush = Ui.Br("#22FFFFFF"),
-                BorderThickness = new Thickness(0, 1, 0, 0),
+                BorderThickness = new Thickness(0, first ? 1 : 0, 0, 0),
                 Background = Brushes.Transparent, // so the whole strip is clickable
                 Cursor = Cursors.Hand,
-                ToolTip = "Copy Microtech number",
+                ToolTip = tip,
                 Child = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Children = { label, num, hint } }
             };
             bar.MouseLeftButtonDown += (s, e) =>
             {
                 e.Handled = true; // don't start a window drag
-                try { Clipboard.SetText(MtsNumber); hint.Text = "copied ✓"; hint.Foreground = Ui.Work; }
+                try { Clipboard.SetText(value); hint.Text = "copied ✓"; hint.Foreground = Ui.Work; }
                 catch { hint.Text = "copy failed"; }
                 var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
                 t.Tick += delegate { t.Stop(); hint.Text = "click to copy"; hint.Foreground = Ui.Dim; };
