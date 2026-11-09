@@ -159,7 +159,7 @@ namespace ClockCraft
                 BorderThickness = new Thickness(1),
                 Opacity = 0.94,
                 Effect = new DropShadowEffect { BlurRadius = 22, ShadowDepth = 4, Direction = 270, Opacity = 0.45, Color = Colors.Black },
-                Child = row
+                Child = new StackPanel { Children = { row, BuildPhoneBar() } }
             };
 
             var x = Ui.T(10, Ui.Br("#DDE1E6"), FontWeights.Normal, Ui.Text);
@@ -212,6 +212,44 @@ namespace ClockCraft
             var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
             timer.Tick += delegate { Tick(); };
             timer.Start();
+        }
+
+        // ---------------------------------------------------------------- phone bar
+        const string MtsNumber = "208-345-0054";
+
+        // Strip under the clocks with the Microtech main number; click copies it.
+        Border BuildPhoneBar()
+        {
+            var label = Ui.T(10.5, Ui.Dim, FontWeights.SemiBold, Ui.Text);
+            label.Text = "MTS";
+            var num = Ui.T(13, Ui.White, FontWeights.SemiBold, Ui.Text);
+            num.Text = MtsNumber;
+            num.Margin = new Thickness(8, 0, 8, 0);
+            var hint = Ui.T(10, Ui.Dim, FontWeights.Normal, Ui.Text);
+            hint.Text = "click to copy";
+            hint.VerticalAlignment = label.VerticalAlignment = VerticalAlignment.Center;
+
+            var bar = new Border
+            {
+                Margin = new Thickness(0, 10, 0, 0),
+                Padding = new Thickness(0, 8, 0, 0),
+                BorderBrush = Ui.Br("#22FFFFFF"),
+                BorderThickness = new Thickness(0, 1, 0, 0),
+                Background = Brushes.Transparent, // so the whole strip is clickable
+                Cursor = Cursors.Hand,
+                ToolTip = "Copy Microtech number",
+                Child = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Children = { label, num, hint } }
+            };
+            bar.MouseLeftButtonDown += (s, e) =>
+            {
+                e.Handled = true; // don't start a window drag
+                try { Clipboard.SetText(MtsNumber); hint.Text = "copied ✓"; hint.Foreground = Ui.Work; }
+                catch { hint.Text = "copy failed"; }
+                var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
+                t.Tick += delegate { t.Stop(); hint.Text = "click to copy"; hint.Foreground = Ui.Dim; };
+                t.Start();
+            };
+            return bar;
         }
 
         // ---------------------------------------------------------------- layout
