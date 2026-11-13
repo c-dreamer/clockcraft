@@ -1,7 +1,7 @@
 # ClockCraft
 
 A floating "island" overlay that sits on top of your apps and shows several time zones side by side.
-The defaults are **Ballito (SAST)**, **Boise (MST/MDT)** and **Pampanga (PHT)**.
+The defaults are **Ballito (SAST)**, **Boise (MST/MDT)**, **Pampanga (PHT)** and **Vacoas-Phoenix, Mauritius (MUT)**.
 
 It's a single C# file built with the compiler that ships with Windows, so there's no SDK, no installer and nothing third-party.
 
