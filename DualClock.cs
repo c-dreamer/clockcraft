@@ -55,7 +55,8 @@ namespace ClockCraft
             {
                 new ZoneCfg { Label = "BALLITO",  Id = "South Africa Standard Time", Abbr = "SAST" },
                 new ZoneCfg { Label = "BOISE",    Id = "Mountain Standard Time",     Abbr = "MST/MDT" },
-                new ZoneCfg { Label = "PAMPANGA", Id = "Singapore Standard Time",    Abbr = "PHT" } // UTC+8, Philippines
+                new ZoneCfg { Label = "PAMPANGA", Id = "Singapore Standard Time",    Abbr = "PHT" }, // UTC+8, Philippines
+                new ZoneCfg { Label = "VACOAS-PHOENIX", Id = "Mauritius Standard Time", Abbr = "MUT" } // UTC+4, Mauritius (Port Louis zone), no DST
             };
         }
 
